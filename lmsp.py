@@ -8,8 +8,6 @@ import random
 import cv2
 import numpy as np
 
-strip = True
-
 def strip_bg(bg, img):
     c1,c2,c3,c4 = cv2.split(img)
 
@@ -20,8 +18,8 @@ def strip_bg(bg, img):
     new_alpha = np.where(alpha_and, 0, 255)
     new_alpha = np.array(new_alpha, dtype=np.uint8)
 
+    #print new_alpha, "\n\n", c1
     return cv2.merge((c1, c2, c3, new_alpha))
-
 
 
 class Cube(object):
@@ -38,22 +36,22 @@ class Cube(object):
     x_axis = 0
     y_axis = 0
     vertices = (
-        (1,-1,-1),
-        (1,-1,1),
-        (-1,-1,1),
-        (-1,-1,-1),
-        (1,1,-1),
-        (1,1,1),
-        (-1,1,1),
-        (-1,1,-1)
+        (1,-1,-2),
+        (1,-1,2),
+        (-1,-1,2),
+        (-1,-1,-2),
+        (1,1,-2),
+        (1,1,2),
+        (-1,1,2),
+        (-1,1,-2)
         )
     faces = (
-        (1,2,3,4),
-        (5,8,7,6),
-        (1,5,6,2),
-        (2,6,7,3),
-        (3,7,8,4),
-        (5,1,4,8)
+        (1,2,3,4)
+  #      (5,8,7,6),
+  #      (1,5,6,2)
+  #      (2,6,7,3)
+  #      (3,7,8,4)
+  #      (5,1,4,8)
         )
     edges = (
         (0, 1),
@@ -106,10 +104,9 @@ class Cube(object):
         
         glBegin(GL_QUADS)
         
-        for face in self.faces:
-            for i,v in enumerate(face):
-                glTexCoord2fv(self.texcoord[i])
-                glVertex3fv(self.vertices[v -1])
+        for i,v in enumerate(self.faces):
+            glTexCoord2fv(self.texcoord[i])
+            glVertex3fv(self.vertices[v -1])
         glEnd()
         glDisable(GL_TEXTURE_2D)
         """
@@ -200,6 +197,7 @@ def main(label, texture):
     pygame.display.set_caption("PyOpenGL Tutorial")
     clock = pygame.time.Clock()
     done = False
+    image = pygame.image.load("bg.png").convert_alpha()
     
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
@@ -209,39 +207,47 @@ def main(label, texture):
     glEnable(GL_DEPTH_TEST)
 
     cube = Cube(texture)
+    for i in range(45):
+        cube.rotate_y()
     #----------- Main Program Loop -------------------------------------
     # --- Main event loop
-    for i in range(0,100): # User did something
-        colors = (random.random(), random.random(), random.random(),)
-        glClearColor(colors[0], colors[1], colors[2], 1)
+    for i in range(0,700): # User did something
+        #glClearColor(random.random(), random.random(), random.random(), 0)
+        glClearColor(1, 1, 1, 1)
 
         if i % 3 == 0:
             r1 = random.randint(0,300)
             for q in range(r1):
                 cube.rotate_x()
+                pass
         elif i % 2 == 0:
             r1 = random.randint(0,300)
             for q in range(r1):
                 cube.rotate_y()
+                pass                
         elif i % 3 == 0:
             r1 = random.randint(0,300)
             for q in range(r1):
-                cube.rotate_z()
+                #cube.rotate_z()
+                pass
+        #time.sleep(1)
+        #cube.keydown()
+        #window.blit(image, (0, 0))
         cube.render_scene()
 
         pygame.display.flip()
-        pygame.image.save(window, "dice/" + str(label) + "_image" + str(i) + ".png")
-       
-        if strip:
-            img = cv2.imread('dice/' + str(label) + "_image" + str(i) + ".png", cv2.IMREAD_UNCHANGED)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
-            bg = img[0][0]
-            cv2.imwrite('dice_no_bg/' + str(label) + "_image" + str(i) + ".png", strip_bg(bg, img))
-    
+        #clock.tick(30)
+        pygame.image.save(window, 'gates/' + str(label) + "_image" + str(i) + ".png")
+        img = cv2.imread('gates/' + str(label) + "_image" + str(i) + ".png", cv2.IMREAD_UNCHANGED)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
+        #print img.shape
+        bg = (255,255,255)
+        cv2.imwrite('gates/' + str(label) + "_image" + str(i) + ".png", strip_bg(bg, img))
     
     cube.delete_texture()
     pygame.quit()
 
 if __name__ == '__main__':
-    for i in range(1,7):
-	   main(i,"dice_" + str(i) + "_rgb.png")
+    i = 'gates'
+    q = 6
+    main(i,"gate_trans.png")

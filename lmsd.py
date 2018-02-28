@@ -277,4 +277,4 @@ def main(label, texture):
 
 if __name__ == '__main__':
     for i in range(1,7):
-	   main(i,"dice_" + str(i) + "_rgb.png")
+	   main(i,"base_images/dice_" + str(i) + "_rgb.png")

@@ -197,7 +197,6 @@ def main(label, texture):
     pygame.display.set_caption("PyOpenGL Tutorial")
     clock = pygame.time.Clock()
     done = False
-    image = pygame.image.load("bg.png").convert_alpha()
     
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
@@ -250,4 +249,4 @@ def main(label, texture):
 if __name__ == '__main__':
     i = 'gates'
     q = 6
-    main(i,"gate_trans.png")
+    main(i,"base_images/gate_trans.png")

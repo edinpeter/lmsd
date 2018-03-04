@@ -13,22 +13,28 @@ import time
 
 class Net(nn.Module):
     def __init__(self):
-        self.network_width = 10
-        self.mystery_1 = 18
+        self.conv1_kernel = 10
+        self.conv2_kernel = 5
+
+    	self.network_width = 20 #out channels
+        self.conv2_output_channels = 18
         self.mystery_2 = 20
         self.mystery_3 = 20
+
+        self.outputs = 6
+
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(3, self.network_width, 10)
+        self.conv1 = nn.Conv2d(3, self.network_width, self.conv1_kernel)
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(self.network_width, self.mystery_1, 5)
-        self.fc1 = nn.Linear(self.mystery_1 * self.mystery_2 * self.mystery_3, 120)
+        self.conv2 = nn.Conv2d(self.network_width, self.conv2_output_channels, self.conv2_kernel)
+        self.fc1 = nn.Linear(self.conv2_output_channels * self.mystery_2 * self.mystery_3, 120)
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc3 = nn.Linear(84, self.outputs)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, self.mystery_1 * self.mystery_2 * self.mystery_3)
+        x = x.view(-1, self.conv2_output_channels * self.mystery_2 * self.mystery_3)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -104,29 +110,74 @@ def get_contour_classes(contours, img):
 	sample = list()
 
 	model = torch.load('/home/peter/Desktop/ftfd/dice_classifier/classifier_cuda.pt')
-
+	model_gray = torch.load('/home/peter/Desktop/ftfd/dice_classifier/classifier_cuda_gray.pt')
+	rois_new = list()
 	for roi in rois:
 		if len(sample) < 4:
+			roi_image_temp = np.array(roi['image'])
 			roi['image'] = cv2.cvtColor(roi['image'], cv2.COLOR_BGRA2BGR)
 			roi['image'] = np.transpose(roi['image'], (2,0,1))
-
 			roi['image'] = torch.from_numpy(roi['image']).float()
+			
+			roi['image_gray'] = cv2.cvtColor(roi_image_temp, cv2.COLOR_BGRA2GRAY)
+			roi['image_gray'] = np.expand_dims(roi['image_gray'], axis=0)
+
+			roi['image_gray'] = torch.from_numpy(roi['image_gray']).float()
 
 			sample.append(roi)
 		else:
+			if len(sample) < 4:
+				while len(sample < 4):
+					sample.append(sample[0])
 
 			t = torch.cat((sample[0]['image'].unsqueeze(0), sample[1]['image'].unsqueeze(0), sample[2]['image'].unsqueeze(0), sample[3]['image'].unsqueeze(0)), dim=0)
+			t_gray = torch.cat((sample[0]['image_gray'].unsqueeze(0), sample[1]['image_gray'].unsqueeze(0), sample[2]['image_gray'].unsqueeze(0), sample[3]['image_gray'].unsqueeze(0)), dim=0)
+
+			print sample[0]['image']
 			outputs = run_model(t, model)
+			outputs_gray = run_model(t_gray, model_gray)
+
 
 			_, predicted = torch.max(outputs.data, 1)
    			predicted = predicted + 1
+
+
+			_, predicted_gray = torch.max(outputs_gray.data, 1)
+   			predicted_gray = predicted_gray + 1
+
+			soft = nn.Softmax(1)
+			softed = soft(Variable(outputs.data))
+
+			soft_gray = nn.Softmax(1)
+			softed_gray = soft_gray(Variable(outputs_gray.data))
+
+			print predicted
+			print softed
    			for i in range(0, 4):
+
    				sample[i]['prediction'] = predicted[i]
+   				sample[i]['confidence'] = softed.data[i][predicted[i] - 1]
 
-   	for roi in rois:
-   		cv2.rectangle(img,(left, top),(right, bottom),(0,255,0),3)
+   				sample[i]['prediction_gray'] = predicted[i]
+   				sample[i]['confidence_gray'] = softed_gray.data[i][predicted_gray[i] - 1]
 
+   				rois_new.append(sample[i])
+   			sample = list()
 
+   	for roi in rois_new:
+   		#print roi['prediction'], roi['confidence']
+   		print roi['confidence'], roi['confidence_gray']
+   		if roi['confidence'] > 0.9:
+   			cv2.rectangle(img,(roi['dims'][0], roi['dims'][2]),(roi['dims'][1], roi['dims'][3]),(0,0,255),3)
+   		else:
+   			cv2.rectangle(img,(roi['dims'][0], roi['dims'][2]),(roi['dims'][1], roi['dims'][3]),(0,255,0),3)
+   			pass
+
+   		if roi['prediction_gray'] != 7:# and roi['confidence'] > 0.7:
+   			cv2.rectangle(img,(roi['dims'][0], roi['dims'][2]),(roi['dims'][1], roi['dims'][3]),(255,0,0),3)
+   		else:
+   			cv2.rectangle(img,(roi['dims'][0], roi['dims'][2]),(roi['dims'][1], roi['dims'][3]),(255,255,0),3)
+   			pass
 
 	return img
 
@@ -160,8 +211,8 @@ def distance_contours(contour_1, contour_2):
 
 
 scenes = os.listdir("scenes/")
-#scene = scenes[random.randint(0, len(scenes) - 1)]
-scene = "223.png"
+scene = scenes[random.randint(0, len(scenes) - 1)]
+#scene = "223.png"
 scene_img = cv2.imread("scenes/" + scene, cv2.IMREAD_UNCHANGED)
 #scene_img = cv2.medianBlur(scene_img, 5)
 
@@ -181,7 +232,7 @@ if circles is not None:
 contours = thresh_contours(scene_img)
 if contours is not None:
 	scene_img = get_contour_classes(contours, scene_img)
-	cv2.drawContours(scene_img, contours, -1, (0,255,0), 3)
+	#cv2.drawContours(scene_img, contours, -1, (0,255,0), 3)
 
 	cv2.imshow('circles', scene_img)
 	cv2.waitKey(0)

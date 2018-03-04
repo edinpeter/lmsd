@@ -10,7 +10,9 @@ import numpy as np
 
 strip = True
 square_off = True
+differ_sizes = True
 PADDING = 10
+differ_center = True
 def strip_bg(bg, img):
     c1,c2,c3,c4 = cv2.split(img)
 
@@ -58,6 +60,15 @@ def get_rect(bounding_box):
         max_y = max(max_y, point[0][0])
         min_y = min(min_y, point[0][0])
     return min_x, max_x, min_y, max_y
+
+
+def square(image):
+	height = image.shape[0]
+	width = image.shape[1]
+
+	square_img = image[ (height - 400) / 2.0 : height - (height - 400) / 2.0, (width - 400) / 2.0 : width - (width - 400) / 2.0]
+	square_img = cv2.resize(square_img, (400,400))
+	return square_img
 
 
 class Cube(object):
@@ -194,7 +205,14 @@ class Cube(object):
         
     def move_down(self):
         self.y_axis -= 0.1
-            
+
+    def reset_distance(self):
+    	self.distance = 0
+    
+    def reset_center(self):
+    	self.x_axis = 0
+    	self.y_axis = 0
+
     def keydown(self):
         if self.a_key:
             self.rotate_x()
@@ -231,7 +249,11 @@ class Cube(object):
     
 def main(label, texture):
     pygame.init()
-    window = pygame.display.set_mode((640,480),pygame.DOUBLEBUF|pygame.OPENGL)
+    window_width = 640.0
+    window_height = 480.0
+    window = pygame.display.set_mode((int(window_width), int(window_height)),pygame.DOUBLEBUF|pygame.OPENGL)
+
+    errors = 0
 
     pygame.display.set_caption("PyOpenGL Tutorial")
     clock = pygame.time.Clock()
@@ -240,21 +262,32 @@ def main(label, texture):
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
     
-    gluPerspective(45,640.0/480.0,0.1,200.0)
+    gluPerspective(45, window_width / window_height, 0.1, 200.0)
     
     glEnable(GL_DEPTH_TEST)
 
     cube = Cube(texture)
     #----------- Main Program Loop -------------------------------------
     # --- Main event loop
-    for i in range(0,700): # User did something
+    for i in range(0,2000): # User did something
         colors = (random.random(), random.random(), random.random(),)
         glClearColor(colors[0], colors[1], colors[2], 1)
+        cube.reset_distance()
+        cube.reset_center()
 
-        for op in [cube.rotate_x, cube.rotate_y, cube.rotate_z]:
-            r1 = random.randint(0,300)
+        ops = [cube.rotate_x, cube.rotate_y, cube.rotate_z]
+        if differ_sizes:
+        	ops = [cube.rotate_x, cube.rotate_y, cube.rotate_z, cube.move_away, cube.move_close]
+       	shifts = [cube.move_up, cube.move_down, cube.move_right, cube.move_left]
+
+       	if differ_center:
+       		ops = ops + shifts
+        for op in ops:
+            r1 = random.randint(0,3) if op in shifts else random.randint(0,300) 
             for q in range(r1):
                 op()
+
+
 
         cube.render_scene()
 
@@ -266,15 +299,23 @@ def main(label, texture):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
             bg = img[0][0]
             cv2.imwrite('dice_no_bg/' + str(label) + "_image" + str(i) + "_nbg.png", strip_bg(bg, img))
+            cv2.imwrite('dice_squared/' + str(label) + "_image" + str(i) + "_squared.png", square(img))
             if square_off:
                 img = cv2.imread('dice_no_bg/' + str(label) + "_image" + str(i) + "_nbg.png", cv2.IMREAD_UNCHANGED)
                 #print img
-                cv2.imwrite('dice_no_bg_squared/' + str(label) + "_image" + str(i) + "_nbg.png", crop(img))
+                try:
+                	cv2.imwrite('dice_no_bg_squared/' + str(label) + "_image" + str(i) + "_nbg.png", crop(img))
+                except:
+                	errors += 1
+                	pass
 
     
     cube.delete_texture()
     pygame.quit()
+    return errors
 
 if __name__ == '__main__':
-    for i in range(1,7):
-	   main(i,"base_images/dice_" + str(i) + "_rgb.png")
+	errors = list()
+	for i in range(1,7):
+	   errors.append(main(i,"base_images/dice_" + str(i) + "_rgb.png"))
+	print "Errors: ", errors
